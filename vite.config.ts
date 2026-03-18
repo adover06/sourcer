@@ -2,38 +2,35 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { resolve } from "path";
 
-// Chrome extensions need IIFE format (no ES modules in content scripts).
-// Rollup can't do IIFE with multiple inputs, so we build each entry separately.
-// The `BUILD_ENTRY` env var selects which entry to build.
+// Chrome extensions need IIFE format for content scripts (no ES modules).
+// Background service workers support ES modules.
+// We build each entry separately via BUILD_ENTRY env var.
 const entry = process.env.BUILD_ENTRY || "content";
 
-const inputs: Record<string, { input: string; cssName?: string }> = {
-  content: {
-    input: resolve(__dirname, "src/content/index.tsx"),
-    cssName: "content",
-  },
-  background: {
-    input: resolve(__dirname, "src/background/index.ts"),
-  },
+const inputs: Record<string, string> = {
+  content: resolve(__dirname, "src/content/index.tsx"),
+  background: resolve(__dirname, "src/background/index.ts"),
 };
 
-const current = inputs[entry];
+const isContent = entry === "content";
 
 export default defineConfig({
   plugins: [react()],
-  publicDir: entry === "content" ? "public" : false,
+  publicDir: isContent ? "public" : false,
   build: {
     outDir: "dist",
-    emptyOutDir: entry === "content", // Only clear on first build
+    emptyOutDir: isContent,
+    cssCodeSplit: false,
     rollupOptions: {
-      input: current.input,
+      input: inputs[entry],
       output: {
+        // Content scripts: IIFE (no module support)
+        // Background: IIFE too (simpler, single file)
         format: "iife",
         entryFileNames: `${entry}.js`,
         assetFileNames: "content.[ext]",
       },
     },
     minify: false,
-    cssCodeSplit: false,
   },
 });

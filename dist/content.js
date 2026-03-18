@@ -1,26 +1,252 @@
 (function() {
 	//#region \0rolldown/runtime.js
-	var __create = Object.create;
-	var __defProp = Object.defineProperty;
-	var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-	var __getOwnPropNames = Object.getOwnPropertyNames;
-	var __getProtoOf = Object.getPrototypeOf;
-	var __hasOwnProp = Object.prototype.hasOwnProperty;
 	var __commonJSMin = (cb, mod) => () => (mod || cb((mod = { exports: {} }).exports, mod), mod.exports);
-	var __copyProps = (to, from, except, desc) => {
-		if (from && typeof from === "object" || typeof from === "function") for (var keys = __getOwnPropNames(from), i = 0, n = keys.length, key; i < n; i++) {
-			key = keys[i];
-			if (!__hasOwnProp.call(to, key) && key !== except) __defProp(to, key, {
-				get: ((k) => from[k]).bind(null, key),
-				enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable
-			});
+	//#endregion
+	//#region node_modules/scheduler/cjs/scheduler.production.js
+	/**
+	* @license React
+	* scheduler.production.js
+	*
+	* Copyright (c) Meta Platforms, Inc. and affiliates.
+	*
+	* This source code is licensed under the MIT license found in the
+	* LICENSE file in the root directory of this source tree.
+	*/
+	var require_scheduler_production = /* @__PURE__ */ __commonJSMin(((exports) => {
+		function push(heap, node) {
+			var index = heap.length;
+			heap.push(node);
+			a: for (; 0 < index;) {
+				var parentIndex = index - 1 >>> 1, parent = heap[parentIndex];
+				if (0 < compare(parent, node)) heap[parentIndex] = node, heap[index] = parent, index = parentIndex;
+				else break a;
+			}
 		}
-		return to;
-	};
-	var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", {
-		value: mod,
-		enumerable: true
-	}) : target, mod));
+		function peek(heap) {
+			return 0 === heap.length ? null : heap[0];
+		}
+		function pop(heap) {
+			if (0 === heap.length) return null;
+			var first = heap[0], last = heap.pop();
+			if (last !== first) {
+				heap[0] = last;
+				a: for (var index = 0, length = heap.length, halfLength = length >>> 1; index < halfLength;) {
+					var leftIndex = 2 * (index + 1) - 1, left = heap[leftIndex], rightIndex = leftIndex + 1, right = heap[rightIndex];
+					if (0 > compare(left, last)) rightIndex < length && 0 > compare(right, left) ? (heap[index] = right, heap[rightIndex] = last, index = rightIndex) : (heap[index] = left, heap[leftIndex] = last, index = leftIndex);
+					else if (rightIndex < length && 0 > compare(right, last)) heap[index] = right, heap[rightIndex] = last, index = rightIndex;
+					else break a;
+				}
+			}
+			return first;
+		}
+		function compare(a, b) {
+			var diff = a.sortIndex - b.sortIndex;
+			return 0 !== diff ? diff : a.id - b.id;
+		}
+		exports.unstable_now = void 0;
+		if ("object" === typeof performance && "function" === typeof performance.now) {
+			var localPerformance = performance;
+			exports.unstable_now = function() {
+				return localPerformance.now();
+			};
+		} else {
+			var localDate = Date, initialTime = localDate.now();
+			exports.unstable_now = function() {
+				return localDate.now() - initialTime;
+			};
+		}
+		var taskQueue = [], timerQueue = [], taskIdCounter = 1, currentTask = null, currentPriorityLevel = 3, isPerformingWork = !1, isHostCallbackScheduled = !1, isHostTimeoutScheduled = !1, needsPaint = !1, localSetTimeout = "function" === typeof setTimeout ? setTimeout : null, localClearTimeout = "function" === typeof clearTimeout ? clearTimeout : null, localSetImmediate = "undefined" !== typeof setImmediate ? setImmediate : null;
+		function advanceTimers(currentTime) {
+			for (var timer = peek(timerQueue); null !== timer;) {
+				if (null === timer.callback) pop(timerQueue);
+				else if (timer.startTime <= currentTime) pop(timerQueue), timer.sortIndex = timer.expirationTime, push(taskQueue, timer);
+				else break;
+				timer = peek(timerQueue);
+			}
+		}
+		function handleTimeout(currentTime) {
+			isHostTimeoutScheduled = !1;
+			advanceTimers(currentTime);
+			if (!isHostCallbackScheduled) if (null !== peek(taskQueue)) isHostCallbackScheduled = !0, isMessageLoopRunning || (isMessageLoopRunning = !0, schedulePerformWorkUntilDeadline());
+			else {
+				var firstTimer = peek(timerQueue);
+				null !== firstTimer && requestHostTimeout(handleTimeout, firstTimer.startTime - currentTime);
+			}
+		}
+		var isMessageLoopRunning = !1, taskTimeoutID = -1, frameInterval = 5, startTime = -1;
+		function shouldYieldToHost() {
+			return needsPaint ? !0 : exports.unstable_now() - startTime < frameInterval ? !1 : !0;
+		}
+		function performWorkUntilDeadline() {
+			needsPaint = !1;
+			if (isMessageLoopRunning) {
+				var currentTime = exports.unstable_now();
+				startTime = currentTime;
+				var hasMoreWork = !0;
+				try {
+					a: {
+						isHostCallbackScheduled = !1;
+						isHostTimeoutScheduled && (isHostTimeoutScheduled = !1, localClearTimeout(taskTimeoutID), taskTimeoutID = -1);
+						isPerformingWork = !0;
+						var previousPriorityLevel = currentPriorityLevel;
+						try {
+							b: {
+								advanceTimers(currentTime);
+								for (currentTask = peek(taskQueue); null !== currentTask && !(currentTask.expirationTime > currentTime && shouldYieldToHost());) {
+									var callback = currentTask.callback;
+									if ("function" === typeof callback) {
+										currentTask.callback = null;
+										currentPriorityLevel = currentTask.priorityLevel;
+										var continuationCallback = callback(currentTask.expirationTime <= currentTime);
+										currentTime = exports.unstable_now();
+										if ("function" === typeof continuationCallback) {
+											currentTask.callback = continuationCallback;
+											advanceTimers(currentTime);
+											hasMoreWork = !0;
+											break b;
+										}
+										currentTask === peek(taskQueue) && pop(taskQueue);
+										advanceTimers(currentTime);
+									} else pop(taskQueue);
+									currentTask = peek(taskQueue);
+								}
+								if (null !== currentTask) hasMoreWork = !0;
+								else {
+									var firstTimer = peek(timerQueue);
+									null !== firstTimer && requestHostTimeout(handleTimeout, firstTimer.startTime - currentTime);
+									hasMoreWork = !1;
+								}
+							}
+							break a;
+						} finally {
+							currentTask = null, currentPriorityLevel = previousPriorityLevel, isPerformingWork = !1;
+						}
+						hasMoreWork = void 0;
+					}
+				} finally {
+					hasMoreWork ? schedulePerformWorkUntilDeadline() : isMessageLoopRunning = !1;
+				}
+			}
+		}
+		var schedulePerformWorkUntilDeadline;
+		if ("function" === typeof localSetImmediate) schedulePerformWorkUntilDeadline = function() {
+			localSetImmediate(performWorkUntilDeadline);
+		};
+		else if ("undefined" !== typeof MessageChannel) {
+			var channel = new MessageChannel(), port = channel.port2;
+			channel.port1.onmessage = performWorkUntilDeadline;
+			schedulePerformWorkUntilDeadline = function() {
+				port.postMessage(null);
+			};
+		} else schedulePerformWorkUntilDeadline = function() {
+			localSetTimeout(performWorkUntilDeadline, 0);
+		};
+		function requestHostTimeout(callback, ms) {
+			taskTimeoutID = localSetTimeout(function() {
+				callback(exports.unstable_now());
+			}, ms);
+		}
+		exports.unstable_IdlePriority = 5;
+		exports.unstable_ImmediatePriority = 1;
+		exports.unstable_LowPriority = 4;
+		exports.unstable_NormalPriority = 3;
+		exports.unstable_Profiling = null;
+		exports.unstable_UserBlockingPriority = 2;
+		exports.unstable_cancelCallback = function(task) {
+			task.callback = null;
+		};
+		exports.unstable_forceFrameRate = function(fps) {
+			0 > fps || 125 < fps ? console.error("forceFrameRate takes a positive int between 0 and 125, forcing frame rates higher than 125 fps is not supported") : frameInterval = 0 < fps ? Math.floor(1e3 / fps) : 5;
+		};
+		exports.unstable_getCurrentPriorityLevel = function() {
+			return currentPriorityLevel;
+		};
+		exports.unstable_next = function(eventHandler) {
+			switch (currentPriorityLevel) {
+				case 1:
+				case 2:
+				case 3:
+					var priorityLevel = 3;
+					break;
+				default: priorityLevel = currentPriorityLevel;
+			}
+			var previousPriorityLevel = currentPriorityLevel;
+			currentPriorityLevel = priorityLevel;
+			try {
+				return eventHandler();
+			} finally {
+				currentPriorityLevel = previousPriorityLevel;
+			}
+		};
+		exports.unstable_requestPaint = function() {
+			needsPaint = !0;
+		};
+		exports.unstable_runWithPriority = function(priorityLevel, eventHandler) {
+			switch (priorityLevel) {
+				case 1:
+				case 2:
+				case 3:
+				case 4:
+				case 5: break;
+				default: priorityLevel = 3;
+			}
+			var previousPriorityLevel = currentPriorityLevel;
+			currentPriorityLevel = priorityLevel;
+			try {
+				return eventHandler();
+			} finally {
+				currentPriorityLevel = previousPriorityLevel;
+			}
+		};
+		exports.unstable_scheduleCallback = function(priorityLevel, callback, options) {
+			var currentTime = exports.unstable_now();
+			"object" === typeof options && null !== options ? (options = options.delay, options = "number" === typeof options && 0 < options ? currentTime + options : currentTime) : options = currentTime;
+			switch (priorityLevel) {
+				case 1:
+					var timeout = -1;
+					break;
+				case 2:
+					timeout = 250;
+					break;
+				case 5:
+					timeout = 1073741823;
+					break;
+				case 4:
+					timeout = 1e4;
+					break;
+				default: timeout = 5e3;
+			}
+			timeout = options + timeout;
+			priorityLevel = {
+				id: taskIdCounter++,
+				callback,
+				priorityLevel,
+				startTime: options,
+				expirationTime: timeout,
+				sortIndex: -1
+			};
+			options > currentTime ? (priorityLevel.sortIndex = options, push(timerQueue, priorityLevel), null === peek(taskQueue) && priorityLevel === peek(timerQueue) && (isHostTimeoutScheduled ? (localClearTimeout(taskTimeoutID), taskTimeoutID = -1) : isHostTimeoutScheduled = !0, requestHostTimeout(handleTimeout, options - currentTime))) : (priorityLevel.sortIndex = timeout, push(taskQueue, priorityLevel), isHostCallbackScheduled || isPerformingWork || (isHostCallbackScheduled = !0, isMessageLoopRunning || (isMessageLoopRunning = !0, schedulePerformWorkUntilDeadline())));
+			return priorityLevel;
+		};
+		exports.unstable_shouldYield = shouldYieldToHost;
+		exports.unstable_wrapCallback = function(callback) {
+			var parentPriorityLevel = currentPriorityLevel;
+			return function() {
+				var previousPriorityLevel = currentPriorityLevel;
+				currentPriorityLevel = parentPriorityLevel;
+				try {
+					return callback.apply(this, arguments);
+				} finally {
+					currentPriorityLevel = previousPriorityLevel;
+				}
+			};
+		};
+	}));
+	//#endregion
+	//#region node_modules/scheduler/index.js
+	var require_scheduler = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+		module.exports = require_scheduler_production();
+	}));
 	//#endregion
 	//#region node_modules/react/cjs/react.production.js
 	/**
@@ -385,252 +611,6 @@
 	//#region node_modules/react/index.js
 	var require_react = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 		module.exports = require_react_production();
-	}));
-	//#endregion
-	//#region node_modules/scheduler/cjs/scheduler.production.js
-	/**
-	* @license React
-	* scheduler.production.js
-	*
-	* Copyright (c) Meta Platforms, Inc. and affiliates.
-	*
-	* This source code is licensed under the MIT license found in the
-	* LICENSE file in the root directory of this source tree.
-	*/
-	var require_scheduler_production = /* @__PURE__ */ __commonJSMin(((exports) => {
-		function push(heap, node) {
-			var index = heap.length;
-			heap.push(node);
-			a: for (; 0 < index;) {
-				var parentIndex = index - 1 >>> 1, parent = heap[parentIndex];
-				if (0 < compare(parent, node)) heap[parentIndex] = node, heap[index] = parent, index = parentIndex;
-				else break a;
-			}
-		}
-		function peek(heap) {
-			return 0 === heap.length ? null : heap[0];
-		}
-		function pop(heap) {
-			if (0 === heap.length) return null;
-			var first = heap[0], last = heap.pop();
-			if (last !== first) {
-				heap[0] = last;
-				a: for (var index = 0, length = heap.length, halfLength = length >>> 1; index < halfLength;) {
-					var leftIndex = 2 * (index + 1) - 1, left = heap[leftIndex], rightIndex = leftIndex + 1, right = heap[rightIndex];
-					if (0 > compare(left, last)) rightIndex < length && 0 > compare(right, left) ? (heap[index] = right, heap[rightIndex] = last, index = rightIndex) : (heap[index] = left, heap[leftIndex] = last, index = leftIndex);
-					else if (rightIndex < length && 0 > compare(right, last)) heap[index] = right, heap[rightIndex] = last, index = rightIndex;
-					else break a;
-				}
-			}
-			return first;
-		}
-		function compare(a, b) {
-			var diff = a.sortIndex - b.sortIndex;
-			return 0 !== diff ? diff : a.id - b.id;
-		}
-		exports.unstable_now = void 0;
-		if ("object" === typeof performance && "function" === typeof performance.now) {
-			var localPerformance = performance;
-			exports.unstable_now = function() {
-				return localPerformance.now();
-			};
-		} else {
-			var localDate = Date, initialTime = localDate.now();
-			exports.unstable_now = function() {
-				return localDate.now() - initialTime;
-			};
-		}
-		var taskQueue = [], timerQueue = [], taskIdCounter = 1, currentTask = null, currentPriorityLevel = 3, isPerformingWork = !1, isHostCallbackScheduled = !1, isHostTimeoutScheduled = !1, needsPaint = !1, localSetTimeout = "function" === typeof setTimeout ? setTimeout : null, localClearTimeout = "function" === typeof clearTimeout ? clearTimeout : null, localSetImmediate = "undefined" !== typeof setImmediate ? setImmediate : null;
-		function advanceTimers(currentTime) {
-			for (var timer = peek(timerQueue); null !== timer;) {
-				if (null === timer.callback) pop(timerQueue);
-				else if (timer.startTime <= currentTime) pop(timerQueue), timer.sortIndex = timer.expirationTime, push(taskQueue, timer);
-				else break;
-				timer = peek(timerQueue);
-			}
-		}
-		function handleTimeout(currentTime) {
-			isHostTimeoutScheduled = !1;
-			advanceTimers(currentTime);
-			if (!isHostCallbackScheduled) if (null !== peek(taskQueue)) isHostCallbackScheduled = !0, isMessageLoopRunning || (isMessageLoopRunning = !0, schedulePerformWorkUntilDeadline());
-			else {
-				var firstTimer = peek(timerQueue);
-				null !== firstTimer && requestHostTimeout(handleTimeout, firstTimer.startTime - currentTime);
-			}
-		}
-		var isMessageLoopRunning = !1, taskTimeoutID = -1, frameInterval = 5, startTime = -1;
-		function shouldYieldToHost() {
-			return needsPaint ? !0 : exports.unstable_now() - startTime < frameInterval ? !1 : !0;
-		}
-		function performWorkUntilDeadline() {
-			needsPaint = !1;
-			if (isMessageLoopRunning) {
-				var currentTime = exports.unstable_now();
-				startTime = currentTime;
-				var hasMoreWork = !0;
-				try {
-					a: {
-						isHostCallbackScheduled = !1;
-						isHostTimeoutScheduled && (isHostTimeoutScheduled = !1, localClearTimeout(taskTimeoutID), taskTimeoutID = -1);
-						isPerformingWork = !0;
-						var previousPriorityLevel = currentPriorityLevel;
-						try {
-							b: {
-								advanceTimers(currentTime);
-								for (currentTask = peek(taskQueue); null !== currentTask && !(currentTask.expirationTime > currentTime && shouldYieldToHost());) {
-									var callback = currentTask.callback;
-									if ("function" === typeof callback) {
-										currentTask.callback = null;
-										currentPriorityLevel = currentTask.priorityLevel;
-										var continuationCallback = callback(currentTask.expirationTime <= currentTime);
-										currentTime = exports.unstable_now();
-										if ("function" === typeof continuationCallback) {
-											currentTask.callback = continuationCallback;
-											advanceTimers(currentTime);
-											hasMoreWork = !0;
-											break b;
-										}
-										currentTask === peek(taskQueue) && pop(taskQueue);
-										advanceTimers(currentTime);
-									} else pop(taskQueue);
-									currentTask = peek(taskQueue);
-								}
-								if (null !== currentTask) hasMoreWork = !0;
-								else {
-									var firstTimer = peek(timerQueue);
-									null !== firstTimer && requestHostTimeout(handleTimeout, firstTimer.startTime - currentTime);
-									hasMoreWork = !1;
-								}
-							}
-							break a;
-						} finally {
-							currentTask = null, currentPriorityLevel = previousPriorityLevel, isPerformingWork = !1;
-						}
-						hasMoreWork = void 0;
-					}
-				} finally {
-					hasMoreWork ? schedulePerformWorkUntilDeadline() : isMessageLoopRunning = !1;
-				}
-			}
-		}
-		var schedulePerformWorkUntilDeadline;
-		if ("function" === typeof localSetImmediate) schedulePerformWorkUntilDeadline = function() {
-			localSetImmediate(performWorkUntilDeadline);
-		};
-		else if ("undefined" !== typeof MessageChannel) {
-			var channel = new MessageChannel(), port = channel.port2;
-			channel.port1.onmessage = performWorkUntilDeadline;
-			schedulePerformWorkUntilDeadline = function() {
-				port.postMessage(null);
-			};
-		} else schedulePerformWorkUntilDeadline = function() {
-			localSetTimeout(performWorkUntilDeadline, 0);
-		};
-		function requestHostTimeout(callback, ms) {
-			taskTimeoutID = localSetTimeout(function() {
-				callback(exports.unstable_now());
-			}, ms);
-		}
-		exports.unstable_IdlePriority = 5;
-		exports.unstable_ImmediatePriority = 1;
-		exports.unstable_LowPriority = 4;
-		exports.unstable_NormalPriority = 3;
-		exports.unstable_Profiling = null;
-		exports.unstable_UserBlockingPriority = 2;
-		exports.unstable_cancelCallback = function(task) {
-			task.callback = null;
-		};
-		exports.unstable_forceFrameRate = function(fps) {
-			0 > fps || 125 < fps ? console.error("forceFrameRate takes a positive int between 0 and 125, forcing frame rates higher than 125 fps is not supported") : frameInterval = 0 < fps ? Math.floor(1e3 / fps) : 5;
-		};
-		exports.unstable_getCurrentPriorityLevel = function() {
-			return currentPriorityLevel;
-		};
-		exports.unstable_next = function(eventHandler) {
-			switch (currentPriorityLevel) {
-				case 1:
-				case 2:
-				case 3:
-					var priorityLevel = 3;
-					break;
-				default: priorityLevel = currentPriorityLevel;
-			}
-			var previousPriorityLevel = currentPriorityLevel;
-			currentPriorityLevel = priorityLevel;
-			try {
-				return eventHandler();
-			} finally {
-				currentPriorityLevel = previousPriorityLevel;
-			}
-		};
-		exports.unstable_requestPaint = function() {
-			needsPaint = !0;
-		};
-		exports.unstable_runWithPriority = function(priorityLevel, eventHandler) {
-			switch (priorityLevel) {
-				case 1:
-				case 2:
-				case 3:
-				case 4:
-				case 5: break;
-				default: priorityLevel = 3;
-			}
-			var previousPriorityLevel = currentPriorityLevel;
-			currentPriorityLevel = priorityLevel;
-			try {
-				return eventHandler();
-			} finally {
-				currentPriorityLevel = previousPriorityLevel;
-			}
-		};
-		exports.unstable_scheduleCallback = function(priorityLevel, callback, options) {
-			var currentTime = exports.unstable_now();
-			"object" === typeof options && null !== options ? (options = options.delay, options = "number" === typeof options && 0 < options ? currentTime + options : currentTime) : options = currentTime;
-			switch (priorityLevel) {
-				case 1:
-					var timeout = -1;
-					break;
-				case 2:
-					timeout = 250;
-					break;
-				case 5:
-					timeout = 1073741823;
-					break;
-				case 4:
-					timeout = 1e4;
-					break;
-				default: timeout = 5e3;
-			}
-			timeout = options + timeout;
-			priorityLevel = {
-				id: taskIdCounter++,
-				callback,
-				priorityLevel,
-				startTime: options,
-				expirationTime: timeout,
-				sortIndex: -1
-			};
-			options > currentTime ? (priorityLevel.sortIndex = options, push(timerQueue, priorityLevel), null === peek(taskQueue) && priorityLevel === peek(timerQueue) && (isHostTimeoutScheduled ? (localClearTimeout(taskTimeoutID), taskTimeoutID = -1) : isHostTimeoutScheduled = !0, requestHostTimeout(handleTimeout, options - currentTime))) : (priorityLevel.sortIndex = timeout, push(taskQueue, priorityLevel), isHostCallbackScheduled || isPerformingWork || (isHostCallbackScheduled = !0, isMessageLoopRunning || (isMessageLoopRunning = !0, schedulePerformWorkUntilDeadline())));
-			return priorityLevel;
-		};
-		exports.unstable_shouldYield = shouldYieldToHost;
-		exports.unstable_wrapCallback = function(callback) {
-			var parentPriorityLevel = currentPriorityLevel;
-			return function() {
-				var previousPriorityLevel = currentPriorityLevel;
-				currentPriorityLevel = parentPriorityLevel;
-				try {
-					return callback.apply(this, arguments);
-				} finally {
-					currentPriorityLevel = previousPriorityLevel;
-				}
-			};
-		};
-	}));
-	//#endregion
-	//#region node_modules/scheduler/index.js
-	var require_scheduler = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-		module.exports = require_scheduler_production();
 	}));
 	//#endregion
 	//#region node_modules/react-dom/cjs/react-dom.production.js
@@ -9922,7 +9902,7 @@
 	//#endregion
 	//#region src/components/CommandPalette.tsx
 	var import_client = require_client();
-	var import_react = /* @__PURE__ */ __toESM(require_react(), 1);
+	var import_react = require_react();
 	var import_jsx_runtime = require_jsx_runtime();
 	function CommandPalette() {
 		const [isOpen, setIsOpen] = (0, import_react.useState)(false);
@@ -9961,6 +9941,30 @@
 		(0, import_react.useEffect)(() => {
 			if (isOpen) requestAnimationFrame(() => inputRef.current?.focus());
 		}, [isOpen]);
+		(0, import_react.useEffect)(() => {
+			if (!isOpen) return;
+			chrome.runtime.sendMessage({
+				type: "SEARCH",
+				query
+			}, (response) => {
+				if (response?.results) {
+					setResults(response.results);
+					setSelectedIndex(0);
+				}
+			});
+		}, [query, isOpen]);
+		const openResult = (0, import_react.useCallback)((item, newTab) => {
+			if (item.source === "tab" && item.tabId && !newTab) chrome.runtime.sendMessage({
+				type: "OPEN_TAB",
+				tabId: item.tabId
+			});
+			else chrome.runtime.sendMessage({
+				type: "OPEN_URL",
+				url: item.url,
+				newTab
+			});
+			setIsOpen(false);
+		}, []);
 		const handleKeyDown = (e) => {
 			switch (e.key) {
 				case "ArrowDown":
@@ -9974,11 +9978,7 @@
 				case "Enter": {
 					e.preventDefault();
 					const selected = results[selectedIndex];
-					if (selected) {
-						if (e.metaKey || e.ctrlKey) window.open(selected.url, "_blank");
-						else window.location.href = selected.url;
-						setIsOpen(false);
-					}
+					if (selected) openResult(selected, e.metaKey || e.ctrlKey);
 					break;
 				}
 				case "Escape":
@@ -9988,26 +9988,31 @@
 			}
 		};
 		if (!isOpen) return null;
+		const sourceLabel = {
+			tab: "TAB",
+			history: "HISTORY",
+			bookmark: "BOOKMARK"
+		};
 		return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-			className: "fixed inset-0 z-[2147483647] flex items-start justify-center pt-[15vh]",
+			className: "fixed inset-0 z-[2147483647] flex items-start justify-center pt-[20vh]",
 			onClick: () => setIsOpen(false),
-			children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "absolute inset-0 bg-black/50 animate-fade-in" }), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-				className: "relative w-full max-w-[640px] bg-[#1e1e2e] rounded-xl shadow-2xl border border-white/10 overflow-hidden animate-scale-in",
+			children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "absolute inset-0 bg-black/60 animate-fade-in" }), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+				className: "relative w-full max-w-[600px] mx-4 bg-[#0a0a0a] rounded-lg border border-[#222] shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden animate-scale-in",
 				onClick: (e) => e.stopPropagation(),
 				onKeyDown: handleKeyDown,
 				children: [
 					/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-						className: "flex items-center px-4 py-3 border-b border-white/10",
+						className: "flex items-center gap-3 px-4 py-3 border-b border-[#1a1a1a]",
 						children: [
 							/* @__PURE__ */ (0, import_jsx_runtime.jsx)("svg", {
-								className: "w-5 h-5 text-white/40 mr-3 shrink-0",
+								className: "w-4 h-4 text-[#555] shrink-0",
 								fill: "none",
 								stroke: "currentColor",
+								strokeWidth: 1.5,
 								viewBox: "0 0 24 24",
 								children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", {
 									strokeLinecap: "round",
 									strokeLinejoin: "round",
-									strokeWidth: 2,
 									d: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
 								})
 							}),
@@ -10015,91 +10020,87 @@
 								ref: inputRef,
 								type: "text",
 								value: query,
-								onChange: (e) => {
-									setQuery(e.target.value);
-									setSelectedIndex(0);
-								},
+								onChange: (e) => setQuery(e.target.value),
 								placeholder: "Search tabs, history, bookmarks...",
-								className: "flex-1 bg-transparent text-white text-base outline-none placeholder:text-white/30"
+								className: "flex-1 bg-transparent text-[#e0e0e0] text-sm font-mono outline-none placeholder:text-[#444] caret-[#888]"
 							}),
 							/* @__PURE__ */ (0, import_jsx_runtime.jsx)("kbd", {
-								className: "hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono text-white/30 bg-white/5 rounded border border-white/10",
+								className: "px-1.5 py-0.5 text-[10px] font-mono text-[#444] bg-[#111] rounded border border-[#222]",
 								children: "ESC"
 							})
 						]
 					}),
 					/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-						className: "max-h-[400px] overflow-y-auto",
+						className: "max-h-[360px] overflow-y-auto",
 						children: [
 							results.length === 0 && query.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-								className: "px-4 py-8 text-center text-white/30 text-sm",
-								children: "Type to search tabs, history, and bookmarks"
+								className: "px-4 py-10 text-center text-[#333] text-xs font-mono tracking-wide",
+								children: "Type to search across your browser"
 							}),
 							results.length === 0 && query.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-								className: "px-4 py-8 text-center text-white/30 text-sm",
+								className: "px-4 py-10 text-center text-[#333] text-xs font-mono tracking-wide",
 								children: "No results found"
 							}),
 							results.map((result, index) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
-								className: `w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${index === selectedIndex ? "bg-white/10 text-white" : "text-white/70 hover:bg-white/5"}`,
-								onClick: () => {
-									window.location.href = result.url;
-									setIsOpen(false);
-								},
+								className: `w-full flex items-center gap-3 px-4 py-2 text-left transition-colors duration-75 border-l-2 ${index === selectedIndex ? "bg-[#111] border-[#e0e0e0]" : "border-transparent hover:bg-[#0d0d0d]"}`,
+								onClick: () => openResult(result, false),
 								onMouseEnter: () => setSelectedIndex(index),
-								children: [
-									/* @__PURE__ */ (0, import_jsx_runtime.jsx)("img", {
-										src: `chrome-extension://${chrome.runtime.id}/_favicon/?pageUrl=${encodeURIComponent(result.url)}&size=16`,
-										alt: "",
-										className: "w-4 h-4 shrink-0 rounded-sm",
-										onError: (e) => {
-											e.target.style.display = "none";
-										}
-									}),
-									/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-										className: "min-w-0 flex-1",
-										children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-											className: "text-sm truncate",
-											children: result.title
-										}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-											className: "text-xs text-white/30 truncate",
-											children: result.url
-										})]
-									}),
-									/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
-										className: "text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-white/30 shrink-0",
-										children: result.source
-									})
-								]
+								children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+									className: "min-w-0 flex-1",
+									children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+										className: `text-sm font-mono truncate ${index === selectedIndex ? "text-white" : "text-[#999]"}`,
+										children: result.title || result.url
+									}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+										className: "text-[11px] font-mono text-[#333] truncate mt-0.5",
+										children: result.url
+									})]
+								}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+									className: `text-[9px] font-mono tracking-widest px-1.5 py-0.5 rounded ${result.source === "tab" ? "text-[#4a9] bg-[#4a9]/10 border border-[#4a9]/20" : result.source === "bookmark" ? "text-[#a9a] bg-[#a9a]/10 border border-[#a9a]/20" : "text-[#555] bg-[#111] border border-[#1a1a1a]"}`,
+									children: sourceLabel[result.source]
+								})]
 							}, result.id))
 						]
 					}),
 					/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-						className: "flex items-center gap-4 px-4 py-2 border-t border-white/10 text-[10px] text-white/20",
+						className: "flex items-center gap-5 px-4 py-2 border-t border-[#1a1a1a]",
 						children: [
-							/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
-								/* @__PURE__ */ (0, import_jsx_runtime.jsx)("kbd", {
-									className: "px-1 py-0.5 bg-white/5 rounded border border-white/10",
-									children: "↑↓"
-								}),
-								" ",
-								"navigate"
-							] }),
-							/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
-								/* @__PURE__ */ (0, import_jsx_runtime.jsx)("kbd", {
-									className: "px-1 py-0.5 bg-white/5 rounded border border-white/10",
-									children: "↵"
-								}),
-								" ",
-								"open"
-							] }),
-							/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
-								/* @__PURE__ */ (0, import_jsx_runtime.jsx)("kbd", {
-									className: "px-1 py-0.5 bg-white/5 rounded border border-white/10",
-									children: "⌘↵"
-								}),
-								" ",
-								"new tab"
-							] })
+							/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", {
+								className: "text-[10px] font-mono text-[#333]",
+								children: [
+									/* @__PURE__ */ (0, import_jsx_runtime.jsx)("kbd", {
+										className: "px-1 py-0.5 bg-[#111] rounded border border-[#222] text-[#444]",
+										children: "↑↓"
+									}),
+									" ",
+									"navigate"
+								]
+							}),
+							/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", {
+								className: "text-[10px] font-mono text-[#333]",
+								children: [
+									/* @__PURE__ */ (0, import_jsx_runtime.jsx)("kbd", {
+										className: "px-1 py-0.5 bg-[#111] rounded border border-[#222] text-[#444]",
+										children: "↵"
+									}),
+									" ",
+									"open"
+								]
+							}),
+							/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", {
+								className: "text-[10px] font-mono text-[#333]",
+								children: [
+									/* @__PURE__ */ (0, import_jsx_runtime.jsx)("kbd", {
+										className: "px-1 py-0.5 bg-[#111] rounded border border-[#222] text-[#444]",
+										children: "⌘↵"
+									}),
+									" ",
+									"new tab"
+								]
+							}),
+							results.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", {
+								className: "ml-auto text-[10px] font-mono text-[#333]",
+								children: [results.length, " results"]
+							})
 						]
 					})
 				]
@@ -10110,7 +10111,16 @@
 	//#region src/content/index.tsx
 	var host = document.createElement("div");
 	host.id = "quicknav-root";
-	document.body.appendChild(host);
-	(0, import_client.createRoot)(host).render(/* @__PURE__ */ (0, import_jsx_runtime.jsx)(CommandPalette, {}));
+	host.style.cssText = "all: initial; position: fixed; z-index: 2147483647; top: 0; left: 0; width: 0; height: 0;";
+	document.documentElement.appendChild(host);
+	var shadow = host.attachShadow({ mode: "open" });
+	var link = document.createElement("link");
+	link.rel = "stylesheet";
+	link.href = chrome.runtime.getURL("content.css");
+	shadow.appendChild(link);
+	var container = document.createElement("div");
+	container.id = "quicknav-container";
+	shadow.appendChild(container);
+	(0, import_client.createRoot)(container).render(/* @__PURE__ */ (0, import_jsx_runtime.jsx)(CommandPalette, {}));
 	//#endregion
 })();

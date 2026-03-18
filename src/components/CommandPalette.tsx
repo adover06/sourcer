@@ -1,20 +1,13 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-
-interface SearchResult {
-  id: string;
-  title: string;
-  url: string;
-  source: "tab" | "history" | "bookmark";
-}
+import { useState, useEffect, useRef, useCallback } from "react";
+import type { SearchItem } from "../lib/types";
 
 export function CommandPalette() {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [results, setResults] = useState<SearchResult[]>([]);
+  const [results, setResults] = useState<SearchItem[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Toggle palette open/close
   const toggle = useCallback(() => {
     setIsOpen((prev) => {
       if (!prev) {
@@ -26,18 +19,16 @@ export function CommandPalette() {
     });
   }, []);
 
-  // Listen for messages from the background script
+  // Listen for toggle from background script
   useEffect(() => {
     const handler = (message: { type: string }) => {
-      if (message.type === "TOGGLE_PALETTE") {
-        toggle();
-      }
+      if (message.type === "TOGGLE_PALETTE") toggle();
     };
     chrome.runtime.onMessage.addListener(handler);
     return () => chrome.runtime.onMessage.removeListener(handler);
   }, [toggle]);
 
-  // Also listen for Cmd+K / Ctrl+K directly in the page
+  // Cmd+K / Ctrl+K directly on the page
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -50,15 +41,44 @@ export function CommandPalette() {
     return () => document.removeEventListener("keydown", handler, true);
   }, [toggle]);
 
-  // Autofocus input when palette opens
+  // Autofocus
   useEffect(() => {
     if (isOpen) {
-      // Small delay to let animation start
       requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, [isOpen]);
 
-  // Keyboard navigation inside the palette
+  // Search when query changes
+  useEffect(() => {
+    if (!isOpen) return;
+    chrome.runtime.sendMessage(
+      { type: "SEARCH", query },
+      (response: { results: SearchItem[] } | undefined) => {
+        if (response?.results) {
+          setResults(response.results);
+          setSelectedIndex(0);
+        }
+      }
+    );
+  }, [query, isOpen]);
+
+  // Navigate to a result
+  const openResult = useCallback(
+    (item: SearchItem, newTab: boolean) => {
+      if (item.source === "tab" && item.tabId && !newTab) {
+        chrome.runtime.sendMessage({ type: "OPEN_TAB", tabId: item.tabId });
+      } else {
+        chrome.runtime.sendMessage({
+          type: "OPEN_URL",
+          url: item.url,
+          newTab,
+        });
+      }
+      setIsOpen(false);
+    },
+    []
+  );
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     switch (e.key) {
       case "ArrowDown":
@@ -72,15 +92,7 @@ export function CommandPalette() {
       case "Enter": {
         e.preventDefault();
         const selected = results[selectedIndex];
-        if (selected) {
-          if (e.metaKey || e.ctrlKey) {
-            // Open in new tab
-            window.open(selected.url, "_blank");
-          } else {
-            window.location.href = selected.url;
-          }
-          setIsOpen(false);
-        }
+        if (selected) openResult(selected, e.metaKey || e.ctrlKey);
         break;
       }
       case "Escape":
@@ -92,32 +104,38 @@ export function CommandPalette() {
 
   if (!isOpen) return null;
 
+  const sourceLabel: Record<string, string> = {
+    tab: "TAB",
+    history: "HISTORY",
+    bookmark: "BOOKMARK",
+  };
+
   return (
     <div
-      className="fixed inset-0 z-[2147483647] flex items-start justify-center pt-[15vh]"
+      className="fixed inset-0 z-[2147483647] flex items-start justify-center pt-[20vh]"
       onClick={() => setIsOpen(false)}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 animate-fade-in" />
+      <div className="absolute inset-0 bg-black/60 animate-fade-in" />
 
       {/* Palette */}
       <div
-        className="relative w-full max-w-[640px] bg-[#1e1e2e] rounded-xl shadow-2xl border border-white/10 overflow-hidden animate-scale-in"
+        className="relative w-full max-w-[600px] mx-4 bg-[#0a0a0a] rounded-lg border border-[#222] shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden animate-scale-in"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
         {/* Search Input */}
-        <div className="flex items-center px-4 py-3 border-b border-white/10">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-[#1a1a1a]">
           <svg
-            className="w-5 h-5 text-white/40 mr-3 shrink-0"
+            className="w-4 h-4 text-[#555] shrink-0"
             fill="none"
             stroke="currentColor"
+            strokeWidth={1.5}
             viewBox="0 0 24 24"
           >
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
-              strokeWidth={2}
               d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
             />
           </svg>
@@ -125,85 +143,90 @@ export function CommandPalette() {
             ref={inputRef}
             type="text"
             value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setSelectedIndex(0);
-            }}
+            onChange={(e) => setQuery(e.target.value)}
             placeholder="Search tabs, history, bookmarks..."
-            className="flex-1 bg-transparent text-white text-base outline-none placeholder:text-white/30"
+            className="flex-1 bg-transparent text-[#e0e0e0] text-sm font-mono outline-none placeholder:text-[#444] caret-[#888]"
           />
-          <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono text-white/30 bg-white/5 rounded border border-white/10">
+          <kbd className="px-1.5 py-0.5 text-[10px] font-mono text-[#444] bg-[#111] rounded border border-[#222]">
             ESC
           </kbd>
         </div>
 
         {/* Results */}
-        <div className="max-h-[400px] overflow-y-auto">
+        <div className="max-h-[360px] overflow-y-auto">
           {results.length === 0 && query.length === 0 && (
-            <div className="px-4 py-8 text-center text-white/30 text-sm">
-              Type to search tabs, history, and bookmarks
+            <div className="px-4 py-10 text-center text-[#333] text-xs font-mono tracking-wide">
+              Type to search across your browser
             </div>
           )}
           {results.length === 0 && query.length > 0 && (
-            <div className="px-4 py-8 text-center text-white/30 text-sm">
+            <div className="px-4 py-10 text-center text-[#333] text-xs font-mono tracking-wide">
               No results found
             </div>
           )}
           {results.map((result, index) => (
             <button
               key={result.id}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+              className={`w-full flex items-center gap-3 px-4 py-2 text-left transition-colors duration-75 border-l-2 ${
                 index === selectedIndex
-                  ? "bg-white/10 text-white"
-                  : "text-white/70 hover:bg-white/5"
+                  ? "bg-[#111] border-[#e0e0e0]"
+                  : "border-transparent hover:bg-[#0d0d0d]"
               }`}
-              onClick={() => {
-                window.location.href = result.url;
-                setIsOpen(false);
-              }}
+              onClick={() => openResult(result, false)}
               onMouseEnter={() => setSelectedIndex(index)}
             >
-              <img
-                src={`chrome-extension://${chrome.runtime.id}/_favicon/?pageUrl=${encodeURIComponent(result.url)}&size=16`}
-                alt=""
-                className="w-4 h-4 shrink-0 rounded-sm"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
-                }}
-              />
               <div className="min-w-0 flex-1">
-                <div className="text-sm truncate">{result.title}</div>
-                <div className="text-xs text-white/30 truncate">
+                <div
+                  className={`text-sm font-mono truncate ${
+                    index === selectedIndex ? "text-white" : "text-[#999]"
+                  }`}
+                >
+                  {result.title || result.url}
+                </div>
+                <div className="text-[11px] font-mono text-[#333] truncate mt-0.5">
                   {result.url}
                 </div>
               </div>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-white/30 shrink-0">
-                {result.source}
+              <span
+                className={`text-[9px] font-mono tracking-widest px-1.5 py-0.5 rounded ${
+                  result.source === "tab"
+                    ? "text-[#4a9] bg-[#4a9]/10 border border-[#4a9]/20"
+                    : result.source === "bookmark"
+                      ? "text-[#a9a] bg-[#a9a]/10 border border-[#a9a]/20"
+                      : "text-[#555] bg-[#111] border border-[#1a1a1a]"
+                }`}
+              >
+                {sourceLabel[result.source]}
               </span>
             </button>
           ))}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center gap-4 px-4 py-2 border-t border-white/10 text-[10px] text-white/20">
-          <span>
-            <kbd className="px-1 py-0.5 bg-white/5 rounded border border-white/10">
+        <div className="flex items-center gap-5 px-4 py-2 border-t border-[#1a1a1a]">
+          <span className="text-[10px] font-mono text-[#333]">
+            <kbd className="px-1 py-0.5 bg-[#111] rounded border border-[#222] text-[#444]">
               ↑↓
             </kbd>{" "}
             navigate
           </span>
-          <span>
-            <kbd className="px-1 py-0.5 bg-white/5 rounded border border-white/10">
+          <span className="text-[10px] font-mono text-[#333]">
+            <kbd className="px-1 py-0.5 bg-[#111] rounded border border-[#222] text-[#444]">
               ↵
             </kbd>{" "}
             open
           </span>
-          <span>
-            <kbd className="px-1 py-0.5 bg-white/5 rounded border border-white/10">
+          <span className="text-[10px] font-mono text-[#333]">
+            <kbd className="px-1 py-0.5 bg-[#111] rounded border border-[#222] text-[#444]">
               ⌘↵
             </kbd>{" "}
             new tab
           </span>
+          {results.length > 0 && (
+            <span className="ml-auto text-[10px] font-mono text-[#333]">
+              {results.length} results
+            </span>
+          )}
         </div>
       </div>
     </div>
