@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@source "../components/**/*.tsx";
 
 /* Custom animations for the command palette */
 @keyframes fade-in {
