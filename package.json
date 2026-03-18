@@ -1,0 +1,37 @@
+{
+  "name": "sourcer",
+  "version": "1.0.0",
+  "description": "An advanced command pallete designed for fast data sourcing in Chrome.",
+  "type": "module",
+  "scripts": {
+    "build": "BUILD_ENTRY=content vite build && BUILD_ENTRY=background vite build",
+    "build:watch": "npm run build && chokidar 'src/**/*' -c 'npm run build' || true",
+    "clean": "rm -rf dist"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adover06/sourcer.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/adover06/sourcer/issues"
+  },
+  "homepage": "https://github.com/adover06/sourcer#readme",
+  "dependencies": {
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.38",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "autoprefixer": "^10.4.27",
+    "postcss": "^8.5.8",
+    "tailwindcss": "^4.2.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.0"
+  }
+}
