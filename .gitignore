@@ -1,0 +1,14 @@
+node_modules/
+dist/
+build/
+.vite/
+
+*.log
+*.local
+
+.DS_Store
+Thumbs.db
+
+*.crx
+*.pem
+*.zip
