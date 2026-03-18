@@ -1251,11 +1251,41 @@
 			ignoreLocation: config.ignoreLocation
 		});
 	}
+	/**
+	* Deduplicate results by title — keep the one with the best score,
+	* boost its visitCount by the number of duplicates merged.
+	*/
+	function dedupeByTitle(results) {
+		const seen = /* @__PURE__ */ new Map();
+		for (const r of results) {
+			const title = r.item.title.toLowerCase().trim();
+			const score = r.score ?? 1;
+			const existing = seen.get(title);
+			if (!existing || score < existing.score) seen.set(title, {
+				item: r.item,
+				score,
+				count: (existing?.count ?? 0) + 1
+			});
+			else existing.count++;
+		}
+		return Array.from(seen.values()).sort((a, b) => a.score - b.score).map((entry) => ({
+			...entry.item,
+			visitCount: (entry.item.visitCount ?? 0) + entry.count
+		}));
+	}
 	/** Search the index, return top N results */
 	function search(query, limit) {
 		const max = limit ?? currentConfig.maxResults;
-		if (!fuse || !query.trim()) return items.slice().sort((a, b) => (b.lastVisitTime ?? 0) - (a.lastVisitTime ?? 0)).slice(0, max);
-		return fuse.search(query, { limit: max }).map((r) => r.item);
+		if (!fuse || !query.trim()) {
+			const seen = /* @__PURE__ */ new Set();
+			return items.slice().sort((a, b) => (b.lastVisitTime ?? 0) - (a.lastVisitTime ?? 0)).filter((item) => {
+				const key = item.title.toLowerCase().trim();
+				if (seen.has(key)) return false;
+				seen.add(key);
+				return true;
+			}).slice(0, max);
+		}
+		return dedupeByTitle(fuse.search(query, { limit: max * 3 })).slice(0, max);
 	}
 	//#endregion
 	//#region src/background/index.ts
