@@ -3,7 +3,7 @@
   "name": "Sourcer",
   "version": "0.1.0",
   "description": "Command palette for Chrome — instantly search tabs, history, and bookmarks.",
-  "permissions": ["history", "bookmarks", "tabs"],
+  "permissions": ["history", "bookmarks", "tabs", "scripting"],
   "background": {
     "service_worker": "background.js"
   },

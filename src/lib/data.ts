@@ -68,11 +68,9 @@ export async function fetchAll(): Promise<SearchItem[]> {
   // Deduplicate: tabs win over bookmarks win over history
   const seen = new Map<string, SearchItem>();
 
-  // History first (lowest priority)
   for (const item of history) {
     seen.set(item.url, item);
   }
-  // Bookmarks override history
   for (const item of bookmarks) {
     const existing = seen.get(item.url);
     seen.set(item.url, {
@@ -81,7 +79,6 @@ export async function fetchAll(): Promise<SearchItem[]> {
       lastVisitTime: existing?.lastVisitTime ?? 0,
     });
   }
-  // Tabs override everything
   for (const item of tabs) {
     const existing = seen.get(item.url);
     seen.set(item.url, {

@@ -10,25 +10,22 @@ async function init() {
 
 init();
 
-// Rebuild index periodically and on new visits
+// Rebuild index on new history visits (debounced)
+let rebuildTimer: ReturnType<typeof setTimeout>;
 chrome.history.onVisited.addListener(() => {
-  // Debounce: rebuild at most every 5 seconds
   clearTimeout(rebuildTimer);
   rebuildTimer = setTimeout(init, 5000);
 });
-
-let rebuildTimer: ReturnType<typeof setTimeout>;
 
 // Handle messages from content script
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === "SEARCH") {
     const results = search(message.query, 8);
     sendResponse({ results });
-    return true; // async response
+    return true;
   }
 
   if (message.type === "OPEN_TAB") {
-    // Switch to an existing tab
     chrome.tabs.update(message.tabId, { active: true });
     if (message.windowId) {
       chrome.windows.update(message.windowId, { focused: true });
@@ -46,9 +43,25 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 });
 
-// Also toggle palette when extension icon is clicked
-chrome.action.onClicked.addListener((tab) => {
-  if (tab.id) {
-    chrome.tabs.sendMessage(tab.id, { type: "TOGGLE_PALETTE" });
+// Toggle palette when extension icon is clicked
+chrome.action.onClicked.addListener(async (tab) => {
+  if (!tab.id) return;
+  try {
+    await chrome.tabs.sendMessage(tab.id, { type: "TOGGLE_PALETTE" });
+  } catch {
+    // Content script not loaded on this tab (chrome:// pages, etc.) — inject it
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ["content.js"],
+      });
+      await chrome.scripting.insertCSS({
+        target: { tabId: tab.id },
+        files: ["content.css"],
+      });
+      await chrome.tabs.sendMessage(tab.id, { type: "TOGGLE_PALETTE" });
+    } catch {
+      // Page doesn't allow script injection (chrome://, web store, etc.)
+    }
   }
 });

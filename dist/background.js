@@ -1242,11 +1242,11 @@
 		console.log(`[Sourcer] Indexed ${data.length} items`);
 	}
 	init();
+	var rebuildTimer;
 	chrome.history.onVisited.addListener(() => {
 		clearTimeout(rebuildTimer);
 		rebuildTimer = setTimeout(init, 5e3);
 	});
-	var rebuildTimer;
 	chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 		if (message.type === "SEARCH") {
 			sendResponse({ results: search(message.query, 8) });
@@ -1263,8 +1263,23 @@
 			return;
 		}
 	});
-	chrome.action.onClicked.addListener((tab) => {
-		if (tab.id) chrome.tabs.sendMessage(tab.id, { type: "TOGGLE_PALETTE" });
+	chrome.action.onClicked.addListener(async (tab) => {
+		if (!tab.id) return;
+		try {
+			await chrome.tabs.sendMessage(tab.id, { type: "TOGGLE_PALETTE" });
+		} catch {
+			try {
+				await chrome.scripting.executeScript({
+					target: { tabId: tab.id },
+					files: ["content.js"]
+				});
+				await chrome.scripting.insertCSS({
+					target: { tabId: tab.id },
+					files: ["content.css"]
+				});
+				await chrome.tabs.sendMessage(tab.id, { type: "TOGGLE_PALETTE" });
+			} catch {}
+		}
 	});
 	//#endregion
 })();

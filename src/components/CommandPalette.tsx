@@ -55,7 +55,17 @@ export function CommandPalette() {
       { type: "SEARCH", query },
       (response: { results: SearchItem[] } | undefined) => {
         if (response?.results) {
-          setResults(response.results);
+          const items = response.results;
+          // Always append a Google search fallback when there's a query
+          if (query.trim()) {
+            items.push({
+              id: "search-google",
+              title: `Search Google for "${query}"`,
+              url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+              source: "search",
+            });
+          }
+          setResults(items);
           setSelectedIndex(0);
         }
       }
@@ -108,6 +118,7 @@ export function CommandPalette() {
     tab: "TAB",
     history: "HISTORY",
     bookmark: "BOOKMARK",
+    search: "GOOGLE",
   };
 
   return (
@@ -159,11 +170,6 @@ export function CommandPalette() {
               Type to search across your browser
             </div>
           )}
-          {results.length === 0 && query.length > 0 && (
-            <div className="px-4 py-10 text-center text-[#333] text-xs font-mono tracking-wide">
-              No results found
-            </div>
-          )}
           {results.map((result, index) => (
             <button
               key={result.id}
@@ -193,7 +199,9 @@ export function CommandPalette() {
                     ? "text-[#4a9] bg-[#4a9]/10 border border-[#4a9]/20"
                     : result.source === "bookmark"
                       ? "text-[#a9a] bg-[#a9a]/10 border border-[#a9a]/20"
-                      : "text-[#555] bg-[#111] border border-[#1a1a1a]"
+                      : result.source === "search"
+                        ? "text-[#88f] bg-[#88f]/10 border border-[#88f]/20"
+                        : "text-[#555] bg-[#111] border border-[#1a1a1a]"
                 }`}
               >
                 {sourceLabel[result.source]}

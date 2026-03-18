@@ -9948,7 +9948,14 @@
 				query
 			}, (response) => {
 				if (response?.results) {
-					setResults(response.results);
+					const items = response.results;
+					if (query.trim()) items.push({
+						id: "search-google",
+						title: `Search Google for "${query}"`,
+						url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+						source: "search"
+					});
+					setResults(items);
 					setSelectedIndex(0);
 				}
 			});
@@ -9991,7 +9998,8 @@
 		const sourceLabel = {
 			tab: "TAB",
 			history: "HISTORY",
-			bookmark: "BOOKMARK"
+			bookmark: "BOOKMARK",
+			search: "GOOGLE"
 		};
 		return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 			className: "fixed inset-0 z-[2147483647] flex items-start justify-center pt-[20vh]",
@@ -10032,34 +10040,27 @@
 					}),
 					/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 						className: "max-h-[360px] overflow-y-auto",
-						children: [
-							results.length === 0 && query.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-								className: "px-4 py-10 text-center text-[#333] text-xs font-mono tracking-wide",
-								children: "Type to search across your browser"
-							}),
-							results.length === 0 && query.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-								className: "px-4 py-10 text-center text-[#333] text-xs font-mono tracking-wide",
-								children: "No results found"
-							}),
-							results.map((result, index) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
-								className: `w-full flex items-center gap-3 px-4 py-2 text-left transition-colors duration-75 border-l-2 ${index === selectedIndex ? "bg-[#111] border-[#e0e0e0]" : "border-transparent hover:bg-[#0d0d0d]"}`,
-								onClick: () => openResult(result, false),
-								onMouseEnter: () => setSelectedIndex(index),
-								children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-									className: "min-w-0 flex-1",
-									children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-										className: `text-sm font-mono truncate ${index === selectedIndex ? "text-white" : "text-[#999]"}`,
-										children: result.title || result.url
-									}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-										className: "text-[11px] font-mono text-[#333] truncate mt-0.5",
-										children: result.url
-									})]
-								}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
-									className: `text-[9px] font-mono tracking-widest px-1.5 py-0.5 rounded ${result.source === "tab" ? "text-[#4a9] bg-[#4a9]/10 border border-[#4a9]/20" : result.source === "bookmark" ? "text-[#a9a] bg-[#a9a]/10 border border-[#a9a]/20" : "text-[#555] bg-[#111] border border-[#1a1a1a]"}`,
-									children: sourceLabel[result.source]
+						children: [results.length === 0 && query.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+							className: "px-4 py-10 text-center text-[#333] text-xs font-mono tracking-wide",
+							children: "Type to search across your browser"
+						}), results.map((result, index) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+							className: `w-full flex items-center gap-3 px-4 py-2 text-left transition-colors duration-75 border-l-2 ${index === selectedIndex ? "bg-[#111] border-[#e0e0e0]" : "border-transparent hover:bg-[#0d0d0d]"}`,
+							onClick: () => openResult(result, false),
+							onMouseEnter: () => setSelectedIndex(index),
+							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+								className: "min-w-0 flex-1",
+								children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+									className: `text-sm font-mono truncate ${index === selectedIndex ? "text-white" : "text-[#999]"}`,
+									children: result.title || result.url
+								}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+									className: "text-[11px] font-mono text-[#333] truncate mt-0.5",
+									children: result.url
 								})]
-							}, result.id))
-						]
+							}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+								className: `text-[9px] font-mono tracking-widest px-1.5 py-0.5 rounded ${result.source === "tab" ? "text-[#4a9] bg-[#4a9]/10 border border-[#4a9]/20" : result.source === "bookmark" ? "text-[#a9a] bg-[#a9a]/10 border border-[#a9a]/20" : result.source === "search" ? "text-[#88f] bg-[#88f]/10 border border-[#88f]/20" : "text-[#555] bg-[#111] border border-[#1a1a1a]"}`,
+								children: sourceLabel[result.source]
+							})]
+						}, result.id))]
 					}),
 					/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 						className: "flex items-center gap-5 px-4 py-2 border-t border-[#1a1a1a]",
