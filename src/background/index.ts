@@ -5,7 +5,7 @@ import { buildIndex, search } from "../lib/search";
 async function init() {
   const data = await fetchAll();
   buildIndex(data);
-  console.log(`[QuickNav] Indexed ${data.length} items`);
+  console.log(`[Sourcer] Indexed ${data.length} items`);
 }
 
 init();

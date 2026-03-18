@@ -1,4 +1,4 @@
-# QuickNav - Chrome Extension
+# Sourcer - Chrome Extension
 
 ## What is this?
 A Raycast-style command palette Chrome extension for navigating browser resources (history, bookmarks, tabs) via Cmd+K / Ctrl+K.

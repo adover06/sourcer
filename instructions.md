@@ -1,8 +1,8 @@
-# QuickNav - Full Build Instructions
+# Sourcer - Full Build Instructions
 
 ## PRODUCT OVERVIEW
 
-QuickNav is a Chrome extension that opens a command palette (via Cmd+K / Ctrl+K) allowing users to:
+Sourcer is a Chrome extension that opens a command palette (via Cmd+K / Ctrl+K) allowing users to:
 
 * Search browser history
 * Search bookmarks

@@ -10110,7 +10110,7 @@
 	//#endregion
 	//#region src/content/index.tsx
 	var host = document.createElement("div");
-	host.id = "quicknav-root";
+	host.id = "sourcer-root";
 	host.style.cssText = "all: initial; position: fixed; z-index: 2147483647; top: 0; left: 0; width: 0; height: 0;";
 	document.documentElement.appendChild(host);
 	var shadow = host.attachShadow({ mode: "open" });
@@ -10119,7 +10119,7 @@
 	link.href = chrome.runtime.getURL("content.css");
 	shadow.appendChild(link);
 	var container = document.createElement("div");
-	container.id = "quicknav-container";
+	container.id = "sourcer-container";
 	shadow.appendChild(container);
 	(0, import_client.createRoot)(container).render(/* @__PURE__ */ (0, import_jsx_runtime.jsx)(CommandPalette, {}));
 	//#endregion

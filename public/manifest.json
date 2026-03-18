@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "QuickNav",
+  "name": "Sourcer",
   "version": "0.1.0",
-  "description": "Raycast-style command palette for Chrome — search tabs, history, and bookmarks instantly.",
+  "description": "Command palette for Chrome — instantly search tabs, history, and bookmarks.",
   "permissions": ["history", "bookmarks", "tabs"],
   "background": {
     "service_worker": "background.js"
@@ -25,11 +25,11 @@
         "default": "Ctrl+K",
         "mac": "Command+K"
       },
-      "description": "Open QuickNav command palette"
+      "description": "Open Sourcer command palette"
     }
   },
   "action": {
-    "default_title": "QuickNav"
+    "default_title": "Sourcer"
   },
   "icons": {
     "16": "icon16.png",
