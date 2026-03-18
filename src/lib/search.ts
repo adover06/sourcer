@@ -1,34 +1,39 @@
 import Fuse from "fuse.js";
 import { SearchItem } from "./types";
+import { SearchConfig, DEFAULT_CONFIG } from "./config";
 
 let fuse: Fuse<SearchItem> | null = null;
 let items: SearchItem[] = [];
+let currentConfig: SearchConfig = DEFAULT_CONFIG;
 
-/** Initialize/update the search index */
-export function buildIndex(data: SearchItem[]) {
+/** Initialize/update the search index with config */
+export function buildIndex(data: SearchItem[], config: SearchConfig = DEFAULT_CONFIG) {
   items = data;
+  currentConfig = config;
   fuse = new Fuse(items, {
     keys: [
-      { name: "title", weight: 0.7 },
-      { name: "url", weight: 0.3 },
+      { name: "title", weight: config.titleWeight },
+      { name: "url", weight: config.urlWeight },
     ],
-    threshold: 0.4,
+    threshold: config.threshold,
     includeScore: true,
-    minMatchCharLength: 1,
+    minMatchCharLength: config.minMatchCharLength,
+    ignoreLocation: config.ignoreLocation,
   });
 }
 
 /** Search the index, return top N results */
-export function search(query: string, limit = 8): SearchItem[] {
+export function search(query: string, limit?: number): SearchItem[] {
+  const max = limit ?? currentConfig.maxResults;
+
   if (!fuse || !query.trim()) {
-    // No query — return most recent / most visited
     return items
       .slice()
       .sort((a, b) => (b.lastVisitTime ?? 0) - (a.lastVisitTime ?? 0))
-      .slice(0, limit);
+      .slice(0, max);
   }
 
   return fuse
-    .search(query, { limit })
+    .search(query, { limit: max })
     .map((r) => r.item);
 }

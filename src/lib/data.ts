@@ -14,13 +14,13 @@ export async function fetchTabs(): Promise<SearchItem[]> {
     }));
 }
 
-/** Fetch recent history (last 6 months, max 10k) */
-export async function fetchHistory(): Promise<SearchItem[]> {
-  const sixMonthsAgo = Date.now() - 180 * 24 * 60 * 60 * 1000;
+/** Fetch recent history based on config */
+export async function fetchHistory(months = 6, maxItems = 10000): Promise<SearchItem[]> {
+  const startTime = Date.now() - months * 30 * 24 * 60 * 60 * 1000;
   const items = await chrome.history.search({
     text: "",
-    startTime: sixMonthsAgo,
-    maxResults: 10000,
+    startTime,
+    maxResults: maxItems,
   });
   return items
     .filter((h) => h.url && h.title)
@@ -58,10 +58,10 @@ export async function fetchBookmarks(): Promise<SearchItem[]> {
 }
 
 /** Fetch all data sources and deduplicate by URL */
-export async function fetchAll(): Promise<SearchItem[]> {
+export async function fetchAll(historyMonths = 6, historyMaxItems = 10000): Promise<SearchItem[]> {
   const [tabs, history, bookmarks] = await Promise.all([
     fetchTabs(),
-    fetchHistory(),
+    fetchHistory(historyMonths, historyMaxItems),
     fetchBookmarks(),
   ]);
 

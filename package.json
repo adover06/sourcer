@@ -4,7 +4,7 @@
   "description": "An advanced command pallete designed for fast data sourcing in Chrome.",
   "type": "module",
   "scripts": {
-    "build": "BUILD_ENTRY=content vite build && BUILD_ENTRY=background vite build && npx @tailwindcss/cli -i src/content/index.css -o dist/content.css --minify",
+    "build": "BUILD_ENTRY=content vite build && BUILD_ENTRY=background vite build && BUILD_ENTRY=options vite build && npx @tailwindcss/cli -i src/content/index.css -o dist/content.css --minify && npx @tailwindcss/cli -i src/options/index.css -o dist/options.css --minify && cp src/options/options.html dist/options.html",
     "build:watch": "npm run build && chokidar 'src/**/*' -c 'npm run build' || true",
     "clean": "rm -rf dist"
   },

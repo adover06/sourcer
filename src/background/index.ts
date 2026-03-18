@@ -1,10 +1,12 @@
 import { fetchAll } from "../lib/data";
 import { buildIndex, search } from "../lib/search";
+import { loadConfig } from "../lib/config";
 
 // Build the search index on startup
 async function init() {
-  const data = await fetchAll();
-  buildIndex(data);
+  const config = await loadConfig();
+  const data = await fetchAll(config.historyMonths, config.historyMaxItems);
+  buildIndex(data, config);
   console.log(`[Sourcer] Indexed ${data.length} items`);
 }
 
@@ -20,8 +22,14 @@ chrome.history.onVisited.addListener(() => {
 // Handle messages from content script
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === "SEARCH") {
-    const results = search(message.query, 8);
+    const results = search(message.query);
     sendResponse({ results });
+    return true;
+  }
+
+  if (message.type === "CONFIG_UPDATED") {
+    // Rebuild index with new config
+    init().then(() => sendResponse({ ok: true }));
     return true;
   }
 
@@ -49,7 +57,6 @@ chrome.action.onClicked.addListener(async (tab) => {
   try {
     await chrome.tabs.sendMessage(tab.id, { type: "TOGGLE_PALETTE" });
   } catch {
-    // Content script not loaded on this tab (chrome:// pages, etc.) — inject it
     try {
       await chrome.scripting.executeScript({
         target: { tabId: tab.id },

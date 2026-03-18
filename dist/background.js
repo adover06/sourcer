@@ -10,13 +10,13 @@
 			tabId: t.id
 		}));
 	}
-	/** Fetch recent history (last 6 months, max 10k) */
-	async function fetchHistory() {
-		const sixMonthsAgo = Date.now() - 4320 * 60 * 60 * 1e3;
+	/** Fetch recent history based on config */
+	async function fetchHistory(months = 6, maxItems = 1e4) {
+		const startTime = Date.now() - months * 30 * 24 * 60 * 60 * 1e3;
 		return (await chrome.history.search({
 			text: "",
-			startTime: sixMonthsAgo,
-			maxResults: 1e4
+			startTime,
+			maxResults: maxItems
 		})).filter((h) => h.url && h.title).map((h) => ({
 			id: `history-${h.url}`,
 			title: h.title || "",
@@ -45,10 +45,10 @@
 		return results;
 	}
 	/** Fetch all data sources and deduplicate by URL */
-	async function fetchAll() {
+	async function fetchAll(historyMonths = 6, historyMaxItems = 1e4) {
 		const [tabs, history, bookmarks] = await Promise.all([
 			fetchTabs(),
-			fetchHistory(),
+			fetchHistory(historyMonths, historyMaxItems),
 			fetchBookmarks()
 		]);
 		const seen = /* @__PURE__ */ new Map();
@@ -1210,35 +1210,59 @@
 	Fuse.parseQuery = parse;
 	register(ExtendedSearch);
 	//#endregion
+	//#region src/lib/config.ts
+	var DEFAULT_CONFIG = {
+		threshold: .5,
+		titleWeight: .3,
+		urlWeight: .6,
+		minMatchCharLength: 2,
+		maxResults: 8,
+		ignoreLocation: false,
+		historyMonths: 6,
+		historyMaxItems: 1e4
+	};
+	async function loadConfig() {
+		const result = await chrome.storage.sync.get("searchConfig");
+		return {
+			...DEFAULT_CONFIG,
+			...result.searchConfig ?? {}
+		};
+	}
+	//#endregion
 	//#region src/lib/search.ts
 	var fuse = null;
 	var items = [];
-	/** Initialize/update the search index */
-	function buildIndex(data) {
+	var currentConfig = DEFAULT_CONFIG;
+	/** Initialize/update the search index with config */
+	function buildIndex(data, config = DEFAULT_CONFIG) {
 		items = data;
+		currentConfig = config;
 		fuse = new Fuse(items, {
 			keys: [{
 				name: "title",
-				weight: .7
+				weight: config.titleWeight
 			}, {
 				name: "url",
-				weight: .3
+				weight: config.urlWeight
 			}],
-			threshold: .4,
+			threshold: config.threshold,
 			includeScore: true,
-			minMatchCharLength: 1
+			minMatchCharLength: config.minMatchCharLength,
+			ignoreLocation: config.ignoreLocation
 		});
 	}
 	/** Search the index, return top N results */
-	function search(query, limit = 8) {
-		if (!fuse || !query.trim()) return items.slice().sort((a, b) => (b.lastVisitTime ?? 0) - (a.lastVisitTime ?? 0)).slice(0, limit);
-		return fuse.search(query, { limit }).map((r) => r.item);
+	function search(query, limit) {
+		const max = limit ?? currentConfig.maxResults;
+		if (!fuse || !query.trim()) return items.slice().sort((a, b) => (b.lastVisitTime ?? 0) - (a.lastVisitTime ?? 0)).slice(0, max);
+		return fuse.search(query, { limit: max }).map((r) => r.item);
 	}
 	//#endregion
 	//#region src/background/index.ts
 	async function init() {
-		const data = await fetchAll();
-		buildIndex(data);
+		const config = await loadConfig();
+		const data = await fetchAll(config.historyMonths, config.historyMaxItems);
+		buildIndex(data, config);
 		console.log(`[Sourcer] Indexed ${data.length} items`);
 	}
 	init();
@@ -1249,7 +1273,11 @@
 	});
 	chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 		if (message.type === "SEARCH") {
-			sendResponse({ results: search(message.query, 8) });
+			sendResponse({ results: search(message.query) });
+			return true;
+		}
+		if (message.type === "CONFIG_UPDATED") {
+			init().then(() => sendResponse({ ok: true }));
 			return true;
 		}
 		if (message.type === "OPEN_TAB") {
