@@ -8,6 +8,8 @@ export function CommandPalette() {
   const [results, setResults] = useState<SearchItem[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const toggle = useCallback(() => {
     setIsOpen((prev) => {
       if (!prev) {
@@ -50,26 +52,34 @@ export function CommandPalette() {
 
   // Search when query changes
   useEffect(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
     if (!isOpen) return;
-    chrome.runtime.sendMessage(
-      { type: "SEARCH", query },
-      (response: { results: SearchItem[] } | undefined) => {
-        if (response?.results) {
-          const items = response.results;
-          // Always append a Google search fallback when there's a query
-          if (query.trim()) {
-            items.push({
-              id: "search-google",
-              title: `Search Google for "${query}"`,
-              url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
-              source: "search",
-            });
+
+    timeoutRef.current = setTimeout(() => {
+      chrome.runtime.sendMessage(
+        { type: "SEARCH", query },
+        (response: { results: SearchItem[] } | undefined) => {
+          if (response?.results) {
+            const items = response.results;
+            if (query.trim()) {
+              items.push({
+                id: "search-google",
+                title: `Search Google for "${query}"`,
+                url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+                source: "search",
+              });
+            }
+            setResults(items);
+            setSelectedIndex(0);
           }
-          setResults(items);
-          setSelectedIndex(0);
         }
-      }
-    );
+      );
+    }, 150);
+
+    return () => clearTimeout(timeoutRef.current!);
   }, [query, isOpen]);
 
   // Navigate to a result

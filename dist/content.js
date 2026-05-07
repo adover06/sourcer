@@ -9910,6 +9910,7 @@
 		const [selectedIndex, setSelectedIndex] = (0, import_react.useState)(0);
 		const [results, setResults] = (0, import_react.useState)([]);
 		const inputRef = (0, import_react.useRef)(null);
+		const timeoutRef = (0, import_react.useRef)(null);
 		const toggle = (0, import_react.useCallback)(() => {
 			setIsOpen((prev) => {
 				if (!prev) {
@@ -9942,23 +9943,27 @@
 			if (isOpen) requestAnimationFrame(() => inputRef.current?.focus());
 		}, [isOpen]);
 		(0, import_react.useEffect)(() => {
+			if (timeoutRef.current) clearTimeout(timeoutRef.current);
 			if (!isOpen) return;
-			chrome.runtime.sendMessage({
-				type: "SEARCH",
-				query
-			}, (response) => {
-				if (response?.results) {
-					const items = response.results;
-					if (query.trim()) items.push({
-						id: "search-google",
-						title: `Search Google for "${query}"`,
-						url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
-						source: "search"
-					});
-					setResults(items);
-					setSelectedIndex(0);
-				}
-			});
+			timeoutRef.current = setTimeout(() => {
+				chrome.runtime.sendMessage({
+					type: "SEARCH",
+					query
+				}, (response) => {
+					if (response?.results) {
+						const items = response.results;
+						if (query.trim()) items.push({
+							id: "search-google",
+							title: `Search Google for "${query}"`,
+							url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+							source: "search"
+						});
+						setResults(items);
+						setSelectedIndex(0);
+					}
+				});
+			}, 150);
+			return () => clearTimeout(timeoutRef.current);
 		}, [query, isOpen]);
 		const openResult = (0, import_react.useCallback)((item, newTab) => {
 			if (item.source === "tab" && item.tabId && !newTab) chrome.runtime.sendMessage({
