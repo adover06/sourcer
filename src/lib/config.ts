@@ -7,6 +7,8 @@ export interface SearchConfig {
   ignoreLocation: boolean;
   historyMonths: number;
   historyMaxItems: number;
+  searchDebounceMs: number;
+  searchDebounceBypassLength: number;
 }
 
 export const DEFAULT_CONFIG: SearchConfig = {
@@ -18,6 +20,8 @@ export const DEFAULT_CONFIG: SearchConfig = {
   ignoreLocation: false,
   historyMonths: 6,
   historyMaxItems: 10000,
+  searchDebounceMs: 150,
+  searchDebounceBypassLength: 3,
 };
 
 export async function loadConfig(): Promise<SearchConfig> {

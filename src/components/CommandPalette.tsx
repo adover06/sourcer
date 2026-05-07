@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { SearchItem } from "../lib/types";
+import { loadConfig, DEFAULT_CONFIG } from "../lib/config";
 
 export function CommandPalette() {
   const [isOpen, setIsOpen] = useState(false);
@@ -9,6 +10,15 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceMs = useRef(DEFAULT_CONFIG.searchDebounceMs);
+  const bypassLength = useRef(DEFAULT_CONFIG.searchDebounceBypassLength);
+
+  useEffect(() => {
+    loadConfig().then((c) => {
+      debounceMs.current = c.searchDebounceMs;
+      bypassLength.current = c.searchDebounceBypassLength;
+    });
+  }, []);
 
   const toggle = useCallback(() => {
     setIsOpen((prev) => {
@@ -58,7 +68,7 @@ export function CommandPalette() {
 
     if (!isOpen) return;
 
-    timeoutRef.current = setTimeout(() => {
+    const runSearch = () => {
       chrome.runtime.sendMessage(
         { type: "SEARCH", query },
         (response: { results: SearchItem[] } | undefined) => {
@@ -77,7 +87,14 @@ export function CommandPalette() {
           }
         }
       );
-    }, 150);
+    };
+
+    if (query.length < bypassLength.current) {
+      runSearch();
+      return;
+    }
+
+    timeoutRef.current = setTimeout(runSearch, debounceMs.current);
 
     return () => clearTimeout(timeoutRef.current!);
   }, [query, isOpen]);

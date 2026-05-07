@@ -189,6 +189,26 @@ function Options() {
                 value={config.ignoreLocation}
                 onChange={(v) => update({ ignoreLocation: v })}
               />
+              <Slider
+                label="Typing delay"
+                description="How long to wait after you stop typing before running the search."
+                value={config.searchDebounceMs}
+                min={0}
+                max={500}
+                step={25}
+                onChange={(v) => update({ searchDebounceMs: v })}
+                format={(v) => `${v}ms`}
+              />
+              <Slider
+                label="Instant search below"
+                description="Queries shorter than this many characters skip the typing delay entirely."
+                value={config.searchDebounceBypassLength}
+                min={0}
+                max={10}
+                step={1}
+                onChange={(v) => update({ searchDebounceBypassLength: v })}
+                format={(v) => `${v} chars`}
+              />
             </div>
           </div>
 
